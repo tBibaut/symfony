@@ -1674,6 +1674,30 @@ class SerializerTest extends TestCase
             DenormalizerInterface::COLLECT_DENORMALIZATION_ERRORS => true,
         ]);
     }
+
+    public function testExtractPublicPropertiesFirst()
+    {
+        $json = '{ "publicProperty": "foo", "privateProperty": true }';
+
+        $serializer = new Serializer([new ObjectNormalizer()], ['json' => new JsonEncoder()]);
+        $result = $serializer->deserialize(
+            $json,
+            DummyPublicPropertyWithHas::class,
+            'json',
+            [
+                'extract_public_properties_first' => true,
+            ]
+        );
+
+        $this->assertEquals(
+            'foo',
+            $result->publicProperty
+        );
+        $this->assertEquals(
+            '1',
+            $result->getPrivateProperty()
+        );
+    }
 }
 
 class Model
@@ -1825,6 +1849,27 @@ class DummyList extends \ArrayObject
     public function getIterator(): \ArrayIterator
     {
         return new \ArrayIterator($this->list);
+    }
+}
+
+class DummyPublicPropertyWithHas
+{
+    public string $publicProperty;
+
+    private string $privateProperty;
+
+    public function hasPublicProperty(): bool
+    {
+    }
+
+    public function getPrivateProperty(): bool
+    {
+        return $this->privateProperty;
+    }
+
+    public function setPrivateProperty(bool $value): void
+    {
+        $this->privateProperty = (string) $value;
     }
 }
 

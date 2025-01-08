@@ -207,6 +207,29 @@ class ReflectionExtractor implements PropertyListExtractorInterface, PropertyTyp
 
     public function getType(string $class, string $property, array $context = []): ?Type
     {
+        // BC layer, remove context key in 8.0
+        $extractPublicPropertiesFirst = \array_key_exists('extract_public_properties_first', $context);
+        if (!$extractPublicPropertiesFirst) {
+            trigger_deprecation('symfony/property-info', '7.3', 'Not setting "extract_public_properties_first" context key is deprecated, it will default to "true" in 8.0.');
+        }
+
+        if ($extractPublicPropertiesFirst) {
+            try {
+                $reflectionClass = new \ReflectionClass($class);
+                $reflectionProperty = $reflectionClass->getProperty($property);
+            } catch (\ReflectionException) {
+                return null;
+            }
+
+            if ($reflectionProperty->isPublic()) {
+                try {
+                    return $this->typeResolver->resolve($reflectionProperty);
+                } catch (UnsupportedException $e) {
+                    throw $e;
+                }
+            }
+        }
+
         [$mutatorReflection, $prefix] = $this->getMutatorMethod($class, $property);
 
         if ($mutatorReflection) {
@@ -240,27 +263,30 @@ class ReflectionExtractor implements PropertyListExtractorInterface, PropertyTyp
             }
         }
 
-        try {
-            $reflectionClass = new \ReflectionClass($class);
-            $reflectionProperty = $reflectionClass->getProperty($property);
-        } catch (\ReflectionException) {
-            return null;
-        }
+        // BC layer, remove block in 8.0
+        if (!$extractPublicPropertiesFirst) {
+            try {
+                $reflectionClass = new \ReflectionClass($class);
+                $reflectionProperty = $reflectionClass->getProperty($property);
+            } catch (\ReflectionException) {
+                return null;
+            }
 
-        try {
-            return $this->typeResolver->resolve($reflectionProperty);
-        } catch (UnsupportedException) {
-        }
+            try {
+                return $this->typeResolver->resolve($reflectionProperty);
+            } catch (UnsupportedException) {
+            }
 
-        if (null === $defaultValue = ($reflectionClass->getDefaultProperties()[$property] ?? null)) {
-            return null;
-        }
+            if (null === $defaultValue = ($reflectionClass->getDefaultProperties()[$property] ?? null)) {
+                return null;
+            }
 
-        $typeIdentifier = TypeIdentifier::from(static::MAP_TYPES[\gettype($defaultValue)] ?? \gettype($defaultValue));
-        $type = 'array' === $typeIdentifier->value ? Type::array() : Type::builtin($typeIdentifier);
+            $typeIdentifier = TypeIdentifier::from(static::MAP_TYPES[\gettype($defaultValue)] ?? \gettype($defaultValue));
+            $type = 'array' === $typeIdentifier->value ? Type::array() : Type::builtin($typeIdentifier);
 
-        if ($this->isNullableProperty($class, $property)) {
-            $type = Type::nullable($type);
+            if ($this->isNullableProperty($class, $property)) {
+                $type = Type::nullable($type);
+            }
         }
 
         return $type;
@@ -738,7 +764,7 @@ class ReflectionExtractor implements PropertyListExtractorInterface, PropertyTyp
     /**
      * Gets the accessor method.
      *
-     * Returns an array with a the instance of \ReflectionMethod as first key
+     * Returns an array with the instance of \ReflectionMethod as first key
      * and the prefix of the method as second or null if not found.
      */
     private function getAccessorMethod(string $class, string $property): ?array
@@ -764,7 +790,7 @@ class ReflectionExtractor implements PropertyListExtractorInterface, PropertyTyp
     }
 
     /**
-     * Returns an array with a the instance of \ReflectionMethod as first key
+     * Returns an array with the instance of \ReflectionMethod as first key
      * and the prefix of the method as second or null if not found.
      */
     private function getMutatorMethod(string $class, string $property): ?array

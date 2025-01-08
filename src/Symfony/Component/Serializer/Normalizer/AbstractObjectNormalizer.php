@@ -373,7 +373,7 @@ abstract class AbstractObjectNormalizer extends AbstractNormalizer
                 }
             }
 
-            if (null !== $type = $this->getType($resolvedClass, $attribute)) {
+            if (null !== $type = $this->getType($resolvedClass, $attribute, $context)) {
                 try {
                     // BC layer for PropertyTypeExtractorInterface::getTypes().
                     // Can be removed as soon as PropertyTypeExtractorInterface::getTypes() is removed (8.0).
@@ -926,7 +926,7 @@ abstract class AbstractObjectNormalizer extends AbstractNormalizer
      */
     protected function denormalizeParameter(\ReflectionClass $class, \ReflectionParameter $parameter, string $parameterName, mixed $parameterData, array $context, ?string $format = null): mixed
     {
-        if ($parameter->isVariadic() || null === $this->propertyTypeExtractor || null === $type = $this->getType($class->getName(), $parameterName)) {
+        if ($parameter->isVariadic() || null === $this->propertyTypeExtractor || null === $type = $this->getType($class->getName(), $parameterName, $context)) {
             return parent::denormalizeParameter($class, $parameter, $parameterName, $parameterData, $context, $format);
         }
 
@@ -946,7 +946,7 @@ abstract class AbstractObjectNormalizer extends AbstractNormalizer
     /**
      * @return Type|list<LegacyType>|null
      */
-    private function getType(string $currentClass, string $attribute): Type|array|null
+    private function getType(string $currentClass, string $attribute, array $context = []): Type|array|null
     {
         if (null === $this->propertyTypeExtractor) {
             return null;
@@ -957,7 +957,7 @@ abstract class AbstractObjectNormalizer extends AbstractNormalizer
             return false === $this->typeCache[$key] ? null : $this->typeCache[$key];
         }
 
-        if (null !== $type = $this->getPropertyType($currentClass, $attribute)) {
+        if (null !== $type = $this->getPropertyType($currentClass, $attribute, $context)) {
             return $this->typeCache[$key] = $type;
         }
 
@@ -967,7 +967,7 @@ abstract class AbstractObjectNormalizer extends AbstractNormalizer
             }
 
             foreach ($discriminatorMapping->getTypesMapping() as $mappedClass) {
-                if (null !== $type = $this->getPropertyType($mappedClass, $attribute)) {
+                if (null !== $type = $this->getPropertyType($mappedClass, $attribute, $context)) {
                     return $this->typeCache[$key] = $type;
                 }
             }
@@ -984,10 +984,10 @@ abstract class AbstractObjectNormalizer extends AbstractNormalizer
      *
      * @return Type|list<LegacyType>|null
      */
-    private function getPropertyType(string $className, string $property): Type|array|null
+    private function getPropertyType(string $className, string $property, array $context = []): Type|array|null
     {
         if (class_exists(Type::class) && method_exists($this->propertyTypeExtractor, 'getType')) {
-            return $this->propertyTypeExtractor->getType($className, $property);
+            return $this->propertyTypeExtractor->getType($className, $property, $context);
         }
 
         return $this->propertyTypeExtractor->getTypes($className, $property);

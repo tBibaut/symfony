@@ -1024,4 +1024,24 @@ class ReflectionExtractorTest extends TestCase
         yield ['dateTime', Type::object(\DateTimeImmutable::class)];
         yield ['ddd', null];
     }
+
+    /**
+     * @dataProvider extractPropertyOrderProvider
+     */
+    public function testPublicPropertyExtractedFirst(string $property, Type $type)
+    {
+        $this->assertEquals(
+            $type,
+            $this->extractor->getType('Symfony\Component\PropertyInfo\Tests\Fixtures\PublicPropertyWithHasDummy', $property, ['extract_public_properties_first' => true])
+        );
+    }
+
+    /**
+     * @return iterable<array{0: string, 1: Type}>
+     */
+    public static function extractPropertyOrderProvider(): iterable
+    {
+        yield ['publicProperty', Type::string()];
+        yield ['privateProperty', Type::bool()];
+    }
 }
